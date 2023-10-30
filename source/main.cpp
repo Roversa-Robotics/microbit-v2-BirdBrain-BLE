@@ -9,80 +9,85 @@
 
 #include <cstdio>
 
-
 MicroBit uBit;
 
 // Check for BLE data, execute appropriate commands
 // sensor data is sent asynchronously in a different fiber
-void ble_mgmt_loop() {
-    while(1) { // loop for ever
-        bleSerialCommand();   // reads the serial command and then executes on that command
+void ble_mgmt_loop()
+{
+    while (1)
+    {                       // loop for ever
+        bleSerialCommand(); // reads the serial command and then executes on that command
         fiber_sleep(1);
     }
 }
 
 // Checks if the device type has changed once per second if not connected
 // If you plug in the micro:bit to a HB or Finch after powering it on, the advertised name changes
-void check_device_loop() {
+void check_device_loop()
+{
 
     uint8_t past_device;
-    uint8_t current_device=0;
+    uint8_t current_device = 0;
     bool update;
     ManagedString devicePrefix;
 
     // initializing current device to whatever it is at start up
-    switch(whatAmI)
+    switch (whatAmI)
     {
-        case A_MB:
-            current_device = MICROBIT_SAMD_ID;
-            // will need to init MB to make sure the edge connector isn't left in a poor state
-            break;
-        case A_HB:
-            current_device = HUMMINGBIT_SAMD_ID;
-            break;
-        case A_FINCH:
-            current_device = FINCH_SAMD_ID;
-            // will need to init Finch and make sure reset line is low
-            break;
+    case A_MB:
+        current_device = MICROBIT_SAMD_ID;
+        // will need to init MB to make sure the edge connector isn't left in a poor state
+        break;
+    case A_HB:
+        current_device = HUMMINGBIT_SAMD_ID;
+        break;
+    case A_FINCH:
+        current_device = FINCH_SAMD_ID;
+        // will need to init Finch and make sure reset line is low
+        break;
     }
 
-    while(1) {
-        // If you're connected to a tablet/computer, we're not changing your prefix in mid-use, so only do the following
-        // if you're not connected
-        if(!bleConnected) {
-            past_device = current_device; // what device do we think we are
+    while (1)
+    {
+        // If you're connected to a tablet/computer, we're not changing your prefix in mid-use, so
+        // only do the following if you're not connected
+        if (!bleConnected)
+        {
+            past_device = current_device;           // what device do we think we are
             current_device = readFirmwareVersion(); // what are we really?
-            // If we are not what we think, then update the device name           
-            if(past_device != current_device)
-            {                                
-                update = true; 
-                switch(current_device)
+            // If we are not what we think, then update the device name
+            if (past_device != current_device)
+            {
+                update = true;
+                switch (current_device)
                 {
-                    case MICROBIT_SAMD_ID:
-                        devicePrefix="MB";
-                        whatAmI = A_MB;
-                        initials_name[3]='M';
-                        initials_name[4]='B';
-                        break;
-                    case FINCH_SAMD_ID:
-                        devicePrefix="FN";
-                        whatAmI = A_FINCH;
-                        initials_name[3]='F';
-                        initials_name[4]='N';
-                        break;
-                    case HUMMINGBIT_SAMD_ID:
-                        devicePrefix="BB";
-                        whatAmI = A_HB;
-                        initHB();
-                        initials_name[3]='B';
-                        initials_name[4]='B';
-                        break;
-                    default: // only update if you read SPI correctly
-                        update = false;
-                        break;
+                case MICROBIT_SAMD_ID:
+                    devicePrefix = "MB";
+                    whatAmI = A_MB;
+                    initials_name[3] = 'M';
+                    initials_name[4] = 'B';
+                    break;
+                case FINCH_SAMD_ID:
+                    devicePrefix = "FN";
+                    whatAmI = A_FINCH;
+                    initials_name[3] = 'F';
+                    initials_name[4] = 'N';
+                    break;
+                case HUMMINGBIT_SAMD_ID:
+                    devicePrefix = "BB";
+                    whatAmI = A_HB;
+                    initHB();
+                    initials_name[3] = 'B';
+                    initials_name[4] = 'B';
+                    break;
+                default: // only update if you read SPI correctly
+                    update = false;
+                    break;
                 }
                 // Update the GAP name over BLE
-                if(update) {
+                if (update)
+                {
                     uBit.ble->stopAdvertising();
                     fiber_sleep(10);
                     uBit.ble->configAdvertising(devicePrefix);
@@ -95,8 +100,18 @@ void check_device_loop() {
     }
 }
 
-int 
-main()
+/// @brief Sets periods of the pins to PULSE_WIDTH
+/// @param leftServo
+/// @param rightServo
+/// @return whether or not they were properly set
+bool setPeriods(NRF52Pin *leftServo, NRF52Pin *rightServo)
+{
+    bool left_period = leftServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK;
+    bool right_period = rightServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK;
+    return left_period && right_period;
+}
+
+int main()
 {
 
     uBit.init(); // Initializes everything but SPI
@@ -106,11 +121,12 @@ main()
     uBit.io.P0.setDigitalValue(0);
 
     // Toggle the reset pin on the Finch, then hold it low
-    // This happens even for HB and standalone micro:bit, as it needs to happen before we can determine device type
+    // This happens even for HB and standalone micro:bit, as it needs to happen before we can
+    // determine device type
     uBit.io.pin[RESET_PIN].setDigitalValue(1);
     fiber_sleep(200);
     uBit.io.pin[RESET_PIN].setDigitalValue(0);
-    
+
     // Wait for the SAMD bootloader checker
     fiber_sleep(1850);
 
@@ -118,23 +134,26 @@ main()
     getInitials_fancyName();
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
-    ManagedString bbDevName = whichDevice(); 
+    ManagedString bbDevName = whichDevice();
 
     // Wait for the BLE stack to stabilize before registering the UART service
-    fiber_sleep(10); 
+    fiber_sleep(10);
+
+    // Set periods on pins 1 and 2 so that PWM motors work
+    if (setPeriods(&uBit.io.P1, &uBit.io.P2))
+        uBit.serial.send("PIN_PERIODS:1\r\n");
+    uBit.serial.send("PIN_PERIODS:0\r\n");
 
     // Start up a UART service and start advertising
-    bleSerialInit(bbDevName);     
-
+    bleSerialInit(bbDevName);
 
     // Setting up an event listener for flashing messages and for running the buzzer
-    BBMicroBitInit();     
+    BBMicroBitInit();
 
     // Creating the main fiber that listens for BLE messages
     create_fiber(ble_mgmt_loop);
-    // Create a fiber to check if you plugged in or unplugged your micro:bit to a Finch or Hummingbird
+    // Create a fiber to check if you plugged in or unplugged your micro:bit to a Finch or
+    // Hummingbird
     create_fiber(check_device_loop);
     release_fiber();
-    
 }
-

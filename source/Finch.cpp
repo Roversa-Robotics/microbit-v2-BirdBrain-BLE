@@ -279,15 +279,7 @@ uint32_t extractMotorTicks(const uint8_t *command, int startIndex)
     return motorTicks;
 }
 
-/// @brief Sets periods of the pins to PULSE_WIDTH
-/// @param leftServo 
-/// @param rightServo 
-/// @return whether or not they were properly set
-bool setPeriods(NRF52Pin *leftServo, NRF52Pin *rightServo)
-{
-    return (leftServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK) &&
-           (rightServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK);
-}
+
 
 /// @brief Pulses the motors for the allotted amount of time for the given value, in ms.
 /// @param leftServo
@@ -298,9 +290,17 @@ bool setPeriods(NRF52Pin *leftServo, NRF52Pin *rightServo)
 bool pulse(NRF52Pin *leftServo, NRF52Pin *rightServo, uint16_t msLeft, uint16_t msRight)
 {
 
-    return setPeriods(leftServo, rightServo) &&
-           (leftServo->setAnalogValue(MAX_WIDTH * msLeft / PULSE_WIDTH) == DEVICE_OK) &&
-           (rightServo->setAnalogValue(MAX_WIDTH * msRight / PULSE_WIDTH == DEVICE_OK));
+    bool left_pulse = leftServo->setAnalogValue(MAX_WIDTH * msLeft / PULSE_WIDTH) == DEVICE_OK;
+    bool right_pulse = rightServo->setAnalogValue(MAX_WIDTH * msLeft / PULSE_WIDTH) == DEVICE_OK;
+
+    if (left_pulse)
+        uBit.serial.send("LEFTPULSE:1\r\n");
+    uBit.serial.send("LEFTPULSE:0\r\n");
+    if (right_pulse)
+        uBit.serial.send("RIGHTPULSE:1\r\n");
+    uBit.serial.send("RIGHTPULSE:0\r\n");
+
+    return left_pulse && right_pulse;
 }
 
 /************************************************************************/
@@ -326,7 +326,17 @@ void moveMotor(uint8_t *currentCommand)
     leftMotorTicks = extractMotorTicks(currentCommand, 3);
     rightMotorTicks = extractMotorTicks(currentCommand, 7);
 
-    pulse(&uBit.io.P1,&uBit.io.P2,(uint16_t)leftMotorTicks % 1024, (uint16_t)rightMotorTicks % 1024);
+    bool success = pulse(&uBit.io.P1, &uBit.io.P2, (uint16_t)leftMotorTicks % 1024,
+                         (uint16_t)rightMotorTicks % 1024);
+
+    if (success)
+    {
+        uBit.serial.send("MOTOR MOVE: 1\r\n");
+    }
+    else
+    {
+        uBit.serial.send("MOTOR MOVE:0\r\n");
+    }
 
     // nrf_delay_ms(1); Not sure why we did this, but it was in the V1 firmware
     //
