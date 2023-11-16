@@ -26,7 +26,7 @@ extern uint16_t sleepCounter; // Used to check if we should turn off the Finch d
 #include "BBMicroBit.h"
 #include "BLESerial.h"
 
-#define RESET_PIN      2 // Pin to reset/turn off Finch - micro:bit pin 1
+
 
 // Codes for which type of device we are - a micro:bit, Finch, or Hummingbird
 #define A_MB           0
