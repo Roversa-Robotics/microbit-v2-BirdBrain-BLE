@@ -21,7 +21,6 @@ void initHB()
 void stopHB()
 {
     uint8_t stopCommand[4] = {STOP_ALL, 0xFF, 0xFF, 0xFF};
-    spiWrite(stopCommand, 4);
     // Setting the buzzer, and HB LED ports 2 and 3 to 0
     uBit.io.P0.setAnalogValue(0);
     uBit.io.P2.setAnalogValue(0);
@@ -42,6 +41,5 @@ void setAllHB(uint8_t commands[], uint8_t length)
         uint16_t buzzDuration = (commands[17]<<8) + commands[18];
         setBuzzer(buzzPeriod, buzzDuration);
         // Sending the SPI command to control the remaining LEDs + servos - 13 bytes
-        spiWrite(commands, LENGTH_SETALL_SPI);
     }
 }

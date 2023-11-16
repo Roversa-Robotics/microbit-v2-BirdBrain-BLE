@@ -529,13 +529,11 @@ void assembleSensorData()
             uint8_t spi_sensors_only[FINCH_SPI_SENSOR_LENGTH];
             memset(sensor_vals, 0, FINCH_SENSOR_SEND_LENGTH);    
             
-            spiReadFinch(spi_sensors_only);
 
             // Catch if our SPI sensor packet got interrupted by inbound BLE messages during read
             while(spi_sensors_only[2] == 0x2C || spi_sensors_only[2] == 0xFF)
             {
                 fiber_sleep(1);
-                spiReadFinch(spi_sensors_only);
             }             
 
             arrangeFinchSensors(spi_sensors_only, sensor_vals);
@@ -618,9 +616,7 @@ void assembleSensorData()
                 memset(check_vals, 0xFF, V2_SENSOR_SEND_LENGTH);
 
                 // Read the sensors twice, occasionally one sensor value will get corrupted in an SPI transaction
-                spiReadHB(sensor_vals);
                 fiber_sleep(1); // put a delay between the two reads or weird stuff happens
-                spiReadHB(check_vals);
 
                 bool readAgain = false;
                 // check if values are within a small range of each other, otherwise one or the other sensor reading might be off and we should read again
@@ -638,9 +634,7 @@ void assembleSensorData()
                 {
                     // Read the SPI values again
                     fiber_sleep(1);
-                    spiReadHB(sensor_vals);
                     fiber_sleep(1);
-                    spiReadHB(check_vals);
                     
                     readAgain = false;
                     // check if values are within a small range of each other, otherwise one or the other sensor reading might be off

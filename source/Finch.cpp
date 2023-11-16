@@ -38,7 +38,6 @@ void stopFinch()
 
     memset(stopCommand, 0xFF, FINCH_SPI_LENGTH);
     stopCommand[0] = FINCH_STOPALL;
-    spiWrite(stopCommand, FINCH_SPI_LENGTH);
     // Init the previous Finch LED command array to all 0s
     memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
 }
@@ -71,7 +70,6 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 
         // setting the Finch LEDs
         // if(updateCommand)
-        spiWrite(commands, FINCH_SPI_LENGTH);
     }
 }
 
@@ -176,7 +174,6 @@ void turnOffFinch()
     memset(turnOffCommand, 0xFF, FINCH_SPI_LENGTH);
     turnOffCommand[0] = FINCH_POWEROFF_SAMD;
 
-    spiWrite(turnOffCommand, FINCH_SPI_LENGTH);
 }
 
 /************************************************************************/
@@ -378,6 +375,7 @@ void moveMotor(uint8_t *currentCommand)
             rightMotorMove = true;
         }
 
-        spiWrite(currentCommand, FINCH_SPI_LENGTH);
+        
+        uBit.serial.send("\r\n\n");
     }
 }

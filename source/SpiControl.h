@@ -20,10 +20,6 @@
 #define HB_SENSOR_LENGTH                                4
 #define FINCH_SPI_SENSOR_LENGTH                         16
 
-void spiInit();
-void spiWrite(uint8_t* writeBuffer, uint8_t length);
-void spiReadHB(uint8_t (&readBuffer)[V2_SENSOR_SEND_LENGTH]);
-void spiReadFinch(uint8_t (&readBuffer)[FINCH_SPI_SENSOR_LENGTH]);
 ManagedString whichDevice();
 uint8_t readFirmwareVersion();
 
