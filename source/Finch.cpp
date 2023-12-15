@@ -5,9 +5,7 @@
 #include "BBMicroBit.h"
 #include "Finch.h"
 #include "BLESerial.h"
-
-#define PULSE_WIDTH 20
-#define MAX_WIDTH 1023
+#include "Pins.h"
 
 int32_t leftEncoder = 0;  // Holds the running value of the left encoder
 int32_t rightEncoder = 0; // Holds the running value of the right encoder

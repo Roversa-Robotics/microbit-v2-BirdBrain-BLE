@@ -8,6 +8,7 @@
 #include "Finch.h"
 
 #include <cstdio>
+#include "Pins.h"
 
 MicroBit uBit;
 
@@ -100,15 +101,10 @@ void check_device_loop()
     }
 }
 
-/// @brief Sets periods of the pins to PULSE_WIDTH
-/// @param leftServo
-/// @param rightServo
-/// @return whether or not they were properly set
-bool setPeriods(NRF52Pin *leftServo, NRF52Pin *rightServo)
+void pause()
 {
-    bool left_period = leftServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK;
-    bool right_period = rightServo->setAnalogPeriod(PULSE_WIDTH) == DEVICE_OK;
-    return left_period && right_period;
+
+    fiber_sleep(10);
 }
 
 int main()
@@ -144,10 +140,14 @@ int main()
     // Setting up an event listener for flashing messages and for running the buzzer
     BBMicroBitInit();
 
+    uBit.serial.send("BLE Mgmt Loop\n\r");
     // Creating the main fiber that listens for BLE messages
     create_fiber(ble_mgmt_loop);
     // Create a fiber to check if you plugged in or unplugged your micro:bit to a Finch or
     // Hummingbird
+    uBit.serial.send("Check device loop\n\r");
     create_fiber(check_device_loop);
+
+    uBit.serial.send("Releasing fiber...\n\r");
     release_fiber();
 }

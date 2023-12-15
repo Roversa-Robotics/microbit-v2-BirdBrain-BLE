@@ -14,6 +14,10 @@
 
 #define LED_MOTOR_MODE_MASK                         0x07
 
+//PWM Motor specific stuff
+#define PULSE_WIDTH 20
+#define MAX_WIDTH 1023
+
 // Initializes the Finch, mostly setting the edge connector pins as we want
 void initFinch();
 
