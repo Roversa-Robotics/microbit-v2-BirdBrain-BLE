@@ -234,7 +234,7 @@ void decodeAndSetPins(uint8_t displayCommands[])
     {
         pinsInputs[1] = false;
         pwmVal = 4*displayCommands[6]; 
-        uBit.io.P1.setAnalogValue(pwmVal);
+        // uBit.io.P1.setAnalogValue(pwmVal);
     }
 
     // Setting pin 2
@@ -249,7 +249,7 @@ void decodeAndSetPins(uint8_t displayCommands[])
     {
         pinsInputs[2] = false;
         pwmVal = 4*displayCommands[7]; 
-        uBit.io.P2.setAnalogValue(pwmVal);
+        // uBit.io.P2.setAnalogValue(pwmVal);
     }
     
 }

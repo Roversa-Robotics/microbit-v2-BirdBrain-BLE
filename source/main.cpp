@@ -115,7 +115,6 @@ int main()
 {
 
     uBit.init(); // Initializes everything but SPI
-    spiInit();   // Turn on SPI
 
     // Set the buzzer pin low so we don't accidentally energize the Finch or HB buzzer
     uBit.io.P0.setDigitalValue(0);
@@ -138,11 +137,6 @@ int main()
 
     // Wait for the BLE stack to stabilize before registering the UART service
     fiber_sleep(10);
-
-    // Set periods on pins 1 and 2 so that PWM motors work
-    if (setPeriods(&uBit.io.P1, &uBit.io.P2))
-        uBit.serial.send("PIN_PERIODS:1\r\n");
-    uBit.serial.send("PIN_PERIODS:0\r\n");
 
     // Start up a UART service and start advertising
     bleSerialInit(bbDevName);

@@ -1,4 +1,5 @@
 #include "MicroBit.h"
+#include "MicroBitFiber.h"
 #include "BirdBrain.h"
 #include "SpiControl.h"
 #include "BBMicroBit.h"
@@ -173,7 +174,6 @@ void turnOffFinch()
 
     memset(turnOffCommand, 0xFF, FINCH_SPI_LENGTH);
     turnOffCommand[0] = FINCH_POWEROFF_SAMD;
-
 }
 
 /************************************************************************/
@@ -253,14 +253,6 @@ void arrangeFinchSensors(uint8_t (&spi_sensors_only)[FINCH_SPI_SENSOR_LENGTH],
     sensor_vals[12] = rightEncoder & 0x0000FF;
 }
 
-/// @brief Converts from commands meant for the Finch 2.0's SPI motors into a value usable by a PWM
-/// motor
-/// @return PWM signal signal that corresponds with SPI motor command
-uint32_t convertToPWM()
-{
-    return 0;
-}
-
 /// @brief Gets motor ticks from the command array
 /// @param command Command array
 /// @param startIndex Index of the first byte of motor ticks
@@ -276,28 +268,112 @@ uint32_t extractMotorTicks(const uint8_t *command, int startIndex)
     return motorTicks;
 }
 
+// Use for when roversa is going forwards
+float_t tickToMSForward(uint32_t ticks)
+{
+    // 3.375*300 is the roversa bot's ms/rotation
+    // 1560.6 is the finchbot's ticks/rotation
+    // Dividing 1560.6 by 3.375*300 results in ms/tick
+    return 4 * (3.375 * 300 / 1560.6) * ticks;
+}
 
+// Use for when roversa is going forwards
+float_t tickToMSTurn(uint32_t ticks)
+{
+    // 3.375*300 is the roversa bot's ms/rotation
+    // 1560.6 is the finchbot's ticks/rotation
+    // Dividing 1560.6 by 3.375*300 results in ms/tick
+    return 2.7 * (3.375 * 300 / 1560.6) * ticks;
+}
+int fireLeftMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
+{
+    bool success = false;
+    if (forward)
+    {
+        success &= motor->setServoValue(180);
+        fiber_sleep(milliseconds);
+        success &= motor->setServoValue(90);
+    }
+    else
+    {
+        success &= motor->setServoValue(0);
+        fiber_sleep(milliseconds);
+        success &= motor->setServoValue(90);
+    }
 
-/// @brief Pulses the motors for the allotted amount of time for the given value, in ms.
-/// @param leftServo
-/// @param rightServo
-/// @param msLeft Milliseconds that the left motor is pulsed
-/// @param msRight Milliseconds that the right motor is pulsed
-/// @return Whether or not the servos were pulsed
-bool pulse(NRF52Pin *leftServo, NRF52Pin *rightServo, uint16_t msLeft, uint16_t msRight)
+    return success;
+}
+
+int fireRightMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
+{
+    bool success = false;
+    if (forward)
+    {
+        success &= motor->setServoValue(0);
+        fiber_sleep(milliseconds);
+        success &= motor->setServoValue(90);
+    }
+    else
+    {
+        success &= motor->setServoValue(180);
+        fiber_sleep(milliseconds);
+        success &= motor->setServoValue(90);
+    }
+
+    return success;
+}
+
+bool forwardFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool forward)
 {
 
-    bool left_pulse = leftServo->setAnalogValue(MAX_WIDTH * msLeft / PULSE_WIDTH) == DEVICE_OK;
-    bool right_pulse = rightServo->setAnalogValue(MAX_WIDTH * msLeft / PULSE_WIDTH) == DEVICE_OK;
+    bool success = false;
+    if (forward)
+    {
+        success &= rightMotor->setServoValue(0);
+        success &= leftMotor->setServoValue(180);
+        fiber_sleep(milliseconds);
+        success &= rightMotor->setServoValue(90);
+        success &= leftMotor->setServoValue(90);
+    }
+    else
+    {
+        success &= rightMotor->setServoValue(180);
+        success &= leftMotor->setServoValue(0);
+        fiber_sleep(milliseconds);
+        success &= rightMotor->setServoValue(90);
+        success &= leftMotor->setServoValue(90);
+    }
 
-    if (left_pulse)
-        uBit.serial.send("LEFTPULSE:1\r\n");
-    uBit.serial.send("LEFTPULSE:0\r\n");
-    if (right_pulse)
-        uBit.serial.send("RIGHTPULSE:1\r\n");
-    uBit.serial.send("RIGHTPULSE:0\r\n");
+    success &= rightMotor->setAnalogValue(0);
+    success &= leftMotor->setAnalogValue(0);
 
-    return left_pulse && right_pulse;
+    return success;
+}
+
+bool turnFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool right)
+{
+
+    bool success = false;
+
+    if (right)
+    {
+        success &= rightMotor->setServoValue(180);
+        success &= leftMotor->setServoValue(180);
+        fiber_sleep(milliseconds);
+        success &= rightMotor->setServoValue(90);
+        success &= leftMotor->setServoValue(90);
+    }
+    else
+    {
+        success &= rightMotor->setServoValue(0);
+        success &= leftMotor->setServoValue(0);
+        fiber_sleep(milliseconds);
+        success &= rightMotor->setServoValue(90);
+        success &= leftMotor->setServoValue(90);
+    }
+    success &= rightMotor->setAnalogValue(0);
+    success &= leftMotor->setAnalogValue(0);
+    return success;
 }
 
 /************************************************************************/
@@ -323,17 +399,29 @@ void moveMotor(uint8_t *currentCommand)
     leftMotorTicks = extractMotorTicks(currentCommand, 3);
     rightMotorTicks = extractMotorTicks(currentCommand, 7);
 
-    bool success = pulse(&uBit.io.P1, &uBit.io.P2, (uint16_t)leftMotorTicks % 1024,
-                         (uint16_t)rightMotorTicks % 1024);
+    // set period to 20
+    //  1023*value/20
+    //   value is within the range of [1,2]
 
-    if (success)
-    {
-        uBit.serial.send("MOTOR MOVE: 1\r\n");
-    }
+    bool leftForward = leftMotorSpeed >= 128;
+    bool rightForward = rightMotorSpeed >= 128;
+    bool is_going_right = leftForward && !rightForward;
+    bool is_turning = leftForward != rightForward;
+
+    uBit.serial.send("Moving motors\n\r");
+
+    if (is_turning)
+        turnFire(tickToMSTurn(leftMotorTicks), &uBit.io.P1, &uBit.io.P2, is_going_right);
     else
-    {
-        uBit.serial.send("MOTOR MOVE:0\r\n");
-    }
+        forwardFire(tickToMSForward(leftMotorTicks), &uBit.io.P1, &uBit.io.P2, leftForward);
+    // just need to create a fiber and release, no scheduling
+    //     schedule_fiber(create_fiber(
+    //         [] { fireLeftMotor(tickToMS(leftMotorTicks), &uBit.io.P1, leftForward) }, []
+    //         {}));
+    // schedule_fiber(create_fiber(
+    // [] { fireRightMotor(tickToMS(rightMotorTicks), &uBit.io.P2, rightForward); }, [] {}));
+
+    uBit.serial.send("Ending movement\n\r");
 
     // nrf_delay_ms(1); Not sure why we did this, but it was in the V1 firmware
     //
@@ -375,7 +463,6 @@ void moveMotor(uint8_t *currentCommand)
             rightMotorMove = true;
         }
 
-        
         uBit.serial.send("\r\n\n");
     }
 }
