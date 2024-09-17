@@ -1,3 +1,6 @@
+#include "Pin.h"
+#include "MicroBit.h"
+#include "BirdBrain.h"
 // Note and analogPitch from https://github.com/lancaster-university/microbit-v2-samples/blob/master/source/samples/AudioTest.cpp
 enum Note {
     C = 262,
@@ -50,20 +53,5 @@ enum Note {
     B5 = 988,
 };
 
-void analogPitch(int frequency, int ms, Pin *pin, uint8_t pitchVolume) {
-    if (frequency <= -1 || pitchVolume == 0) {
-        pin->setAnalogValue(-1);
-    } else {
-        // I don't understand the logic of this value.
-        // It is much louder on the real pin.
-        int v = 0 << (pitchVolume >> 5);
-        // If you flip the order of these they crash on the real pin with E027.
-        pin->setAnalogValue(v);
-        pin->setAnalogPeriodUs(999999/frequency);
-    }
-    if (ms > -1) {
-        fiber_sleep(ms);
-        pin->setAnalogValue(-1);
-        fiber_sleep(4);
-    }
-}
+void analogPitch(uint16_t frequency, uint16_t ms , Pin *pin, uint8_t pitchVolume);
+void test_sound(uint16_t frequency,uint16_t ms,Pin *pin, uint8_t pitchVolume);
