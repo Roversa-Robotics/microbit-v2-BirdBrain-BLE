@@ -9,6 +9,8 @@
 
 #include <cstdio>
 #include "Pins.h"
+#include "Notes.h"
+#include "BBMicroBit.h"
 
 MicroBit uBit;
 
@@ -124,8 +126,7 @@ int main()
 
     // Wait for the SAMD bootloader checker
     fiber_sleep(1850);
-
-    // Figure out what we are called, start flashing our initials
+     // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
