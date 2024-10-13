@@ -70,6 +70,7 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
         // setting the Finch LEDs
         // if(updateCommand)
     }
+    
 }
 
 // Sets all Finch motors + the micro:bit LED array
@@ -275,6 +276,11 @@ float_t tickToMSForward(uint32_t ticks)
     return 4 * (3.375 * 300 / 1560.6) * ticks;
 }
 
+float_t ticksToCentimeters(uint32_t ticks)
+{
+    return ticks / 49.7;
+}
+
 // Use for when roversa is going forwards
 float_t tickToMSTurn(uint32_t ticks)
 {
@@ -283,6 +289,11 @@ float_t tickToMSTurn(uint32_t ticks)
     // Dividing 1560.6 by 3.375*300 results in ms/tick
     return 2.7 * (3.375 * 300 / 1560.6) * ticks;
 }
+/// @brief Fires the left motor
+/// @param milliseconds Number of milliseconds to fire
+/// @param motor
+/// @param forward Whether it's going forwards or not
+/// @return Whether the function finished successfully
 int fireLeftMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
 {
     bool success = false;
@@ -302,6 +313,11 @@ int fireLeftMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
     return success;
 }
 
+/// @brief Fires the right motor
+/// @param milliseconds Number of milliseconds to fire
+/// @param motor
+/// @param forward Whether it's going forwards or not
+/// @return Whether the function finished successfully
 int fireRightMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
 {
     bool success = false;
@@ -321,17 +337,34 @@ int fireRightMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
     return success;
 }
 
+/// @brief Fires PWM motors forward or backward
+/// @param distance in centimeters
+/// @param speed as given from a command
+/// @param leftMotor
+/// @param rightMotor
+/// @param forward Whether the motors should go forwards or backwards
+/// @return Whether the function finished successfully
 bool forwardFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool forward)
 {
 
-    bool success = false;
+    // 700 to 2300 frequency widith range
+
+    // float_t distance,uint16_t speed
+
+    bool success = true;
     if (forward)
     {
-        success &= rightMotor->setServoValue(0);
-        success &= leftMotor->setServoValue(180);
+
+        success &= rightMotor->setServoValue(0, 800, 1500);
+        success &= leftMotor->setServoValue(180, 800, 1500);
+        // fiber_sleep(milliseconds);
+        // success &= rightMotor->setServoValue(45, 800, 1100);
+        // success &= leftMotor->setServoValue(180 - 45, 800, 1100);
+        // success &= rightMotor->setServoValue(90 - 90);
+        // success &= leftMotor->setServoValue(90 + 90);
         fiber_sleep(milliseconds);
-        success &= rightMotor->setServoValue(90);
-        success &= leftMotor->setServoValue(90);
+        success &= rightMotor->setServoValue(90, 800, 1500);
+        success &= leftMotor->setServoValue(90, 800, 1500);
     }
     else
     {
@@ -347,11 +380,16 @@ bool forwardFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor
 
     return success;
 }
-
+/// @brief Makes the robot turn
+/// @param milliseconds Number of milliseconds to turn for
+/// @param leftMotor
+/// @param rightMotor
+/// @param right whether it should turn right or left
+/// @return Whether the operation was done successfully
 bool turnFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool right)
 {
 
-    bool success = false;
+    bool success = true;
 
     if (right)
     {
