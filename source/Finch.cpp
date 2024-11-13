@@ -6,6 +6,7 @@
 #include "Finch.h"
 #include "BLESerial.h"
 #include "Pins.h"
+#include "Servo.hpp"
 
 int32_t leftEncoder = 0;  // Holds the running value of the left encoder
 int32_t rightEncoder = 0; // Holds the running value of the right encoder
@@ -70,7 +71,6 @@ void setAllFinchLEDs(uint8_t commands[], uint8_t length)
         // setting the Finch LEDs
         // if(updateCommand)
     }
-    
 }
 
 // Sets all Finch motors + the micro:bit LED array
@@ -109,6 +109,7 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
             // Checking that we have enough data to set the motor
             if (length >= 10)
             {
+                fiber_sleep(1);
                 moveMotor(commands);
                 bytesUsed = 10;
             }
@@ -126,6 +127,7 @@ uint8_t setAllFinchMotorsAndLEDArray(uint8_t commands[], uint8_t length)
                     symbolCommands[i + 2] = commands[i + 10];
                 }
                 decodeAndSetDisplay(symbolCommands, 6);
+                fiber_sleep(1);
                 moveMotor(commands); // safe to send the symbol commands too, they get overwritten
                                      // with zeros
                 bytesUsed = 14;
@@ -263,153 +265,153 @@ uint32_t extractMotorTicks(const uint8_t *command, int startIndex)
     motorTicks = (((uint32_t)command[startIndex]) << 16) & 0x00FF0000;
     motorTicks |= (((uint32_t)command[startIndex + 1]) << 8) & 0x0000FF00;
     motorTicks |= (((uint32_t)command[startIndex + 2])) & 0x000000FF;
-
+    // memcpy(&motorTicks + 1, command, 3); //24 bit integer from command, into 32bit
+    uBit.serial.printf("ticks:/%d/", motorTicks);
     return motorTicks;
 }
+float_t ticksToMillimeters(uint32_t ticks)
+{
+    return ((float_t)ticks) * 10.0 / 50.0;
+}
+
+
+float_t round_float(float_t num){
+    return (float_t)((int)num+0.5);
+}
+
+/// @brief
+/// @param ticks
+/// @param speed_percent Must be [0,100]
+/// @return
+float_t tickToMSForward(uint32_t ticks, uint32_t speed_percent)
+{
+    float_t speed_perc = ((float_t)speed_percent) / 100;
+    const float_t WHEEL_DIAM = 35;      // in millimeters
+    const float_t MAX_SPEED = 1 / 1000; // in rotations per millisecond
+    // 3.375*300 is the roversa bot's ms/rotation
+    // 1560.6 is the finchbot's ticks/rotation
+    // Dividing 1560.6 by 3.375*300 results in ms/tick
+    uBit.serial.printf("TICKS:/%d/", ticks);
+    float_t rotations = round(ticksToMillimeters(ticks) / (3.14f * WHEEL_DIAM));
+    uBit.serial.printf("TTM:/%d/", ticksToMillimeters(ticks));
+    uBit.serial.printf("DIAMLEN:/%d/", (int)(3.14f * WHEEL_DIAM));
+    uBit.serial.printf("ROTS:/%d/", (int)rotations);
+    uBit.serial.printf("SPEEDPERC:/%d/", speed_percent);
+    float_t milliseconds = (rotations / (speed_perc)) *1000;// * MAX_SPEED);
+    uBit.serial.printf("MILLI:/%d/", (int)round(milliseconds));
+    return milliseconds;
+    // return (4 * 3 * 300 * ticks) / 1561;
+    // return 4 * (3.375 * 300 / 1560.6) * ticks;
+}
 
 // Use for when roversa is going forwards
-float_t tickToMSForward(uint32_t ticks)
+uint32_t tickToMSTurn(uint32_t ticks)
 {
     // 3.375*300 is the roversa bot's ms/rotation
     // 1560.6 is the finchbot's ticks/rotation
     // Dividing 1560.6 by 3.375*300 results in ms/tick
-    return 4 * (3.375 * 300 / 1560.6) * ticks;
+    return (3 * 3 * 300 * ticks) / 1561;
+    // return 2.7 * (3.375 * 300 / 1560.6) * ticks;
 }
 
-float_t ticksToCentimeters(uint32_t ticks)
-{
-    return ticks / 49.7;
-}
 
-// Use for when roversa is going forwards
-float_t tickToMSTurn(uint32_t ticks)
+
+
+int runMotor(NRF52Pin *motor, int percent)
 {
-    // 3.375*300 is the roversa bot's ms/rotation
-    // 1560.6 is the finchbot's ticks/rotation
-    // Dividing 1560.6 by 3.375*300 results in ms/tick
-    return 2.7 * (3.375 * 300 / 1560.6) * ticks;
-}
-/// @brief Fires the left motor
-/// @param milliseconds Number of milliseconds to fire
-/// @param motor
-/// @param forward Whether it's going forwards or not
-/// @return Whether the function finished successfully
-int fireLeftMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
-{
-    bool success = false;
-    if (forward)
+    int period = 20000;
+    int min = 700;
+    int stop = 1500;
+    int max = 2300;
+    // Assume percent positive
+    int pulse_period;
+
+    motor->setAnalogPeriodUs(period);
+    uBit.serial.printf("PERCFORMOTOR:/%d/", percent);
+
+    if (percent == 0)
     {
-        success &= motor->setServoValue(180);
-        fiber_sleep(milliseconds);
-        success &= motor->setServoValue(90);
+        uBit.serial.printf("perc is 0");
+        pulse_period = stop;
+    }
+    else if (percent < 0)
+    {
+        pulse_period = stop + (((stop - min) * percent) / 100);
     }
     else
     {
-        success &= motor->setServoValue(0);
-        fiber_sleep(milliseconds);
-        success &= motor->setServoValue(90);
+        uBit.serial.printf("Went here");
+        pulse_period = stop + (((max - stop) * percent) / 100);
     }
 
-    return success;
-}
-
-/// @brief Fires the right motor
-/// @param milliseconds Number of milliseconds to fire
-/// @param motor
-/// @param forward Whether it's going forwards or not
-/// @return Whether the function finished successfully
-int fireRightMotor(float_t milliseconds, NRF52Pin *motor, bool forward)
-{
-    bool success = false;
-    if (forward)
+    if (pulse_period < 0)
     {
-        success &= motor->setServoValue(0);
-        fiber_sleep(milliseconds);
-        success &= motor->setServoValue(90);
+        pulse_period = -1 * pulse_period;
     }
     else
     {
-        success &= motor->setServoValue(180);
-        fiber_sleep(milliseconds);
-        success &= motor->setServoValue(90);
+        pulse_period = maximum(minimum(pulse_period, max), min);
     }
 
-    return success;
+    // pulse_period = 1932;
+    uBit.serial.printf("PP:/%d/", pulse_period);
+    int duty = (pulse_period * 1023) / period;
+    motor->setAnalogValue(duty);
+    return 0;
 }
 
-/// @brief Fires PWM motors forward or backward
-/// @param distance in centimeters
-/// @param speed as given from a command
-/// @param leftMotor
-/// @param rightMotor
-/// @param forward Whether the motors should go forwards or backwards
-/// @return Whether the function finished successfully
-bool forwardFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool forward)
+bool fireThem(float_t milliseconds, int32_t right_speed, int32_t left_speed, NRF52Pin *leftMotor,
+              NRF52Pin *rightMotor, bool forward)
 {
-
-    // 700 to 2300 frequency widith range
-
-    // float_t distance,uint16_t speed
-
     bool success = true;
-    if (forward)
-    {
-
-        success &= rightMotor->setServoValue(0, 800, 1500);
-        success &= leftMotor->setServoValue(180, 800, 1500);
-        // fiber_sleep(milliseconds);
-        // success &= rightMotor->setServoValue(45, 800, 1100);
-        // success &= leftMotor->setServoValue(180 - 45, 800, 1100);
-        // success &= rightMotor->setServoValue(90 - 90);
-        // success &= leftMotor->setServoValue(90 + 90);
-        fiber_sleep(milliseconds);
-        success &= rightMotor->setServoValue(90, 800, 1500);
-        success &= leftMotor->setServoValue(90, 800, 1500);
-    }
-    else
-    {
-        success &= rightMotor->setServoValue(180);
-        success &= leftMotor->setServoValue(0);
-        fiber_sleep(milliseconds);
-        success &= rightMotor->setServoValue(90);
-        success &= leftMotor->setServoValue(90);
-    }
-
-    success &= rightMotor->setAnalogValue(0);
-    success &= leftMotor->setAnalogValue(0);
-
-    return success;
+    uBit.serial.printf("\nrightS:%d,leftS:%d\n", right_speed, left_speed);
+    uBit.serial.printf("\nmilliseconds:%d\n", (uint32_t)milliseconds);
+    success &= runMotor(rightMotor, -1 * right_speed);
+    success &= runMotor(leftMotor, left_speed);
+    fiber_sleep((uint32_t)milliseconds);
+    // fiber_sleep(1000);
+    success &= rightMotor->setServoValue(90, 800, 1500);
+    success &= leftMotor->setServoValue(90, 800, 1500);
 }
-/// @brief Makes the robot turn
-/// @param milliseconds Number of milliseconds to turn for
-/// @param leftMotor
-/// @param rightMotor
-/// @param right whether it should turn right or left
-/// @return Whether the operation was done successfully
-bool turnFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, bool right)
+
+
+
+/// @brief
+/// @param velocity velocity/speed byte from command byte array
+/// @return velocity from -100 to 100
+int32_t finchSpeedToRoversaSpeed(uint8_t velocity)
 {
-
-    bool success = true;
-
-    if (right)
+    int8_t MAX_SPEED = 36;
+    int8_t MIN_SPEED = 3;
+    int32_t DIFF_SPEED = MAX_SPEED - MIN_SPEED;
+    int32_t speed = 0x7f & velocity; // Get magnitude
+    if (speed >= MAX_SPEED)
     {
-        success &= rightMotor->setServoValue(180);
-        success &= leftMotor->setServoValue(180);
-        fiber_sleep(milliseconds);
-        success &= rightMotor->setServoValue(90);
-        success &= leftMotor->setServoValue(90);
+        uBit.serial.printf("Invalid speed input: %d", speed);
+        return 100;
     }
-    else
+    else if (speed <= MIN_SPEED)
     {
-        success &= rightMotor->setServoValue(0);
-        success &= leftMotor->setServoValue(0);
-        fiber_sleep(milliseconds);
-        success &= rightMotor->setServoValue(90);
-        success &= leftMotor->setServoValue(90);
+        uBit.serial.printf("Invalid speed input: %d", speed);
+        return 0;
     }
-    success &= rightMotor->setAnalogValue(0);
-    success &= leftMotor->setAnalogValue(0);
-    return success;
+
+    uBit.serial.printf("speed:/%d/", speed);
+    uint8_t direction = 0x80 & velocity; // Get first direction bit of speed byte
+    uBit.serial.printf("dir:/%d/", direction);
+    if (direction) // Forwards
+    {
+        uBit.serial.printf("Forwards");
+        // Stays positive
+        int32_t speed_100 = speed * 100;
+        return (speed_100) / (DIFF_SPEED);
+    }
+    else if (!direction) // Backwards
+    {
+        uBit.serial.printf("Backwards");
+        int32_t speed_100 = speed * 100;
+        return -1 * (speed_100) / (DIFF_SPEED);
+    }
 }
 
 /************************************************************************/
@@ -417,8 +419,14 @@ bool turnFire(float_t milliseconds, NRF52Pin *leftMotor, NRF52Pin *rightMotor, b
 // Convert 32 bit number into a 24 bit value and send it to SAMD
 // Left motor
 /************************************************************************/
+bool isFirstRun = true;
 void moveMotor(uint8_t *currentCommand)
 {
+    if (isFirstRun)
+    {
+        fiber_sleep(10);
+        isFirstRun = false;
+    }
     // Need to parse the incoming command and convert that command to something understandable to
     // the microbit through its pins Using uBit as defined in main.cpp, use the pins that are found
     // in roversa/programming
@@ -426,11 +434,16 @@ void moveMotor(uint8_t *currentCommand)
 
     uint16_t leftMotorSpeed = 0;
     uint32_t leftMotorTicks = 0;
-    uint16_t rightMotorSpeed = 0;
+    uint8_t rightMotorSpeed = 0;
     uint32_t rightMotorTicks = 0;
 
     leftMotorSpeed = currentCommand[2];
     rightMotorSpeed = currentCommand[6];
+
+    int32_t leftMotorVelocity = finchSpeedToRoversaSpeed(leftMotorSpeed);
+    int32_t rightMotorVelocity = finchSpeedToRoversaSpeed(rightMotorSpeed);
+
+    uBit.serial.printf("leftMotorSpeed:/%d/", finchSpeedToRoversaSpeed(leftMotorSpeed));
 
     leftMotorTicks = extractMotorTicks(currentCommand, 3);
     rightMotorTicks = extractMotorTicks(currentCommand, 7);
@@ -446,10 +459,18 @@ void moveMotor(uint8_t *currentCommand)
 
     uBit.serial.send("Moving motors\n\r");
 
-    if (is_turning)
-        turnFire(tickToMSTurn(leftMotorTicks), &uBit.io.P1, &uBit.io.P2, is_going_right);
-    else
-        forwardFire(tickToMSForward(leftMotorTicks), &uBit.io.P1, &uBit.io.P2, leftForward);
+    fireThem(tickToMSForward(leftMotorTicks, abs(leftMotorVelocity))*.4, rightMotorVelocity,
+             leftMotorVelocity, &uBit.io.P1, &uBit.io.P2, leftForward);
+             uBit.io.P1.setAnalogValue(0);
+             uBit.io.P2.setAnalogValue(0);
+    // if (is_turning)
+    //     turnFire(tickToMSForward(leftMotorTicks, abs(leftMotorVelocity)), &uBit.io.P1,
+    //     &uBit.io.P2,
+    //              is_going_right);
+    // else
+    // {
+    // }
+
     // just need to create a fiber and release, no scheduling
     //     schedule_fiber(create_fiber(
     //         [] { fireLeftMotor(tickToMS(leftMotorTicks), &uBit.io.P1, leftForward) }, []
