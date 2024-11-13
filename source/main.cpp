@@ -120,17 +120,21 @@ int main()
     // Toggle the reset pin on the Finch, then hold it low
     // This happens even for HB and standalone micro:bit, as it needs to happen before we can
     // determine device type
-    uBit.io.pin[RESET_PIN].setDigitalValue(1);
-    fiber_sleep(200);
-    uBit.io.pin[RESET_PIN].setDigitalValue(0);
+    // uBit.io.pin[RESET_PIN].setDigitalValue(1);
+    // fiber_sleep(200);
+    // uBit.io.pin[RESET_PIN].setDigitalValue(0);
 
     // Wait for the SAMD bootloader checker
-    fiber_sleep(1850);
+    // fiber_sleep(1850);
      // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice();
+
+
+
+
 
     // Wait for the BLE stack to stabilize before registering the UART service
     fiber_sleep(10);
