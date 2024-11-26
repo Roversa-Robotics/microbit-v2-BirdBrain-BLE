@@ -65,54 +65,9 @@ void mbBuzz(MicroBitEvent)
     localDuration = buzzDuration;
     buzzerRunning = true;
 
-    // test_sound(Note::B3,100)
     analogPitch(buzzPeriod, buzzDuration, &uBit.audio.virtualOutputPin, 255);
     buzzerRunning = false;
-    fiber_sleep(10);
-    return;
-
-    // Make a sound if the tone is below 20 KHz and longer than 10 ms
-    if (buzzPeriod > 50 && localDuration > 10)
-    {
-        while (elapsed < (localDuration / 4) && buzzerRunning)
-        {
-            // If we've updated the buzzer while it's playing, update to the new values
-            if (newBuzz && buzzDuration > 0)
-            {
-                // easy to convert this into playing from both buzzers if that is desirable on Finch
-                // and HB
-                if (whatAmI == A_MB)
-                {
-                    uBit.io.speaker.setAnalogValue(512);
-                    uBit.io.speaker.setAnalogPeriodUs(buzzPeriod);
-                }
-                else
-                {
-                    uBit.io.P0.setAnalogValue(512);
-                    uBit.io.P0.setAnalogPeriodUs(buzzPeriod);
-                    uBit.io.speaker.setAnalogValue(0);
-                }
-                elapsed = 0;                  // resetting elapsed time
-                localDuration = buzzDuration; // resetting the buzz duration
-                newBuzz = false; // making sure we don't update again until a real new value comes
-                                 // in over BLE
-            }
-            // Check every 4 milliseconds
-            fiber_sleep(4);
-            elapsed++;
-        }
-        if (whatAmI == A_MB)
-        {
-            uBit.io.speaker.setAnalogValue(0);
-        }
-        else
-        {
-            uBit.io.P0.setAnalogValue(0);
-        }
-    }
-    // Reset the flags
     newBuzz = false;
-    buzzerRunning = false;
 }
 
 void BBMicroBitInit()

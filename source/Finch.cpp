@@ -6,7 +6,6 @@
 #include "Finch.h"
 #include "BLESerial.h"
 #include "Pins.h"
-#include "Servo.hpp"
 
 int32_t leftEncoder = 0;  // Holds the running value of the left encoder
 int32_t rightEncoder = 0; // Holds the running value of the right encoder
@@ -266,64 +265,100 @@ uint32_t extractMotorTicks(const uint8_t *command, int startIndex)
     motorTicks |= (((uint32_t)command[startIndex + 1]) << 8) & 0x0000FF00;
     motorTicks |= (((uint32_t)command[startIndex + 2])) & 0x000000FF;
     // memcpy(&motorTicks + 1, command, 3); //24 bit integer from command, into 32bit
-    uBit.serial.printf("ticks:/%d/", motorTicks);
+    // uBit.serial.printf("ticks:/%d/", motorTicks);
     return motorTicks;
 }
 float_t ticksToMillimeters(uint32_t ticks)
 {
-    return ((float_t)ticks) * 10.0 / 50.0;
+    return ((float_t)ticks) / (49.7 / 10.0);
 }
 
-
-float_t round_float(float_t num){
-    return (float_t)((int)num+0.5);
+float_t round_float(float_t num)
+{
+    return (float_t)((int)num + 0.5);
 }
 
+float_t tickToMS_2(uint32_t ticks, uint32_t speed_percent)
+{
+    float_t speed_perc = ((float_t)speed_percent) / 100.0;
+    return (((3824600.0 - 3686000.0 * (speed_perc) + 477.0 * ticksToMillimeters(ticks)) /
+             (171000.0)) *
+            1000.0) -
+           (100000 * (1 - speed_perc));
+}
+
+// float_t tickToMS(uint32_t ticks, uint32_t speed_percent){}
 /// @brief
 /// @param ticks
 /// @param speed_percent Must be [0,100]
 /// @return
-float_t tickToMSForward(uint32_t ticks, uint32_t speed_percent)
+float_t tickToMS(uint32_t ticks, uint32_t speed_percent)
 {
-    float_t speed_perc = ((float_t)speed_percent) / 100;
-    const float_t WHEEL_DIAM = 35;      // in millimeters
-    const float_t MAX_SPEED = 1 / 1000; // in rotations per millisecond
+    float_t speed_perc = ((float_t)speed_percent) / 100.0;
+    const float_t WHEEL_DIAM = 35.0;            // in millimeters
+    const float_t MAX_ROT_SPEED = 1.0 / 1000.0; // in rotations per millisecond
+    const float_t MAX_LINEAR_SPEED = MAX_ROT_SPEED * WHEEL_DIAM;
+    uBit.serial.printf("MAXLINEARSPEED:/   %d*%d =%d  /", (int)WHEEL_DIAM, (int)MAX_ROT_SPEED,
+                       (int)MAX_LINEAR_SPEED);
+    uBit.serial.printf("ticks:/%d/", ticks);
+    float_t dist = ticksToMillimeters(ticks);
+    float_t milliseconds = dist / (MAX_LINEAR_SPEED * speed_perc);
+    uBit.serial.printf("MILLI:/%d/", (int)round(milliseconds));
+    return milliseconds - (10000*(1-speed_perc));
     // 3.375*300 is the roversa bot's ms/rotation
     // 1560.6 is the finchbot's ticks/rotation
     // Dividing 1560.6 by 3.375*300 results in ms/tick
-    uBit.serial.printf("TICKS:/%d/", ticks);
-    float_t rotations = round(ticksToMillimeters(ticks) / (3.14f * WHEEL_DIAM));
-    uBit.serial.printf("TTM:/%d/", ticksToMillimeters(ticks));
-    uBit.serial.printf("DIAMLEN:/%d/", (int)(3.14f * WHEEL_DIAM));
-    uBit.serial.printf("ROTS:/%d/", (int)rotations);
-    uBit.serial.printf("SPEEDPERC:/%d/", speed_percent);
-    float_t milliseconds = (rotations / (speed_perc)) *1000;// * MAX_SPEED);
-    uBit.serial.printf("MILLI:/%d/", (int)round(milliseconds));
-    return milliseconds;
+    // uBit.serial.printf("TICKS:/%d/", ticks);
+    float_t rotations = round(dist / (3.14f * WHEEL_DIAM));
+    // uBit.serial.printf("TTM:/%d/", ticksToMillimeters(ticks));
+    // uBit.serial.printf("DIAMLEN:/%d/", (int)(3.14f * WHEEL_DIAM));
+    // uBit.serial.printf("ROTS:/%d/", (int)rotations);
+    // uBit.serial.printf("SPEEDPERC:/%d/", speed_percent);
+    // float_t milliseconds = (rotations / (speed_perc)) * 1000; // * MAX_SPEED);
+    // return milliseconds;
     // return (4 * 3 * 300 * ticks) / 1561;
     // return 4 * (3.375 * 300 / 1560.6) * ticks;
 }
 
-// Use for when roversa is going forwards
-uint32_t tickToMSTurn(uint32_t ticks)
+int maximum(int a, int b)
 {
-    // 3.375*300 is the roversa bot's ms/rotation
-    // 1560.6 is the finchbot's ticks/rotation
-    // Dividing 1560.6 by 3.375*300 results in ms/tick
-    return (3 * 3 * 300 * ticks) / 1561;
-    // return 2.7 * (3.375 * 300 / 1560.6) * ticks;
+    if (a > b)
+    {
+        return a;
+    }
+    return b;
+}
+int minimum(int a, int b)
+{
+    if (a < b)
+    {
+        return a;
+    }
+    return b;
 }
 
+int clean_percent(int percent)
+{
 
+    if (percent > 100)
+    {
+        percent = 100;
+    }
+    else if (percent < -100)
+    {
+        percent = -100;
+    }
 
+    return percent;
+}
 
 int runMotor(NRF52Pin *motor, int percent)
 {
+    percent = clean_percent(percent);
     int period = 20000;
     int min = 700;
     int stop = 1500;
     int max = 2300;
-    // Assume percent positive
     int pulse_period;
 
     motor->setAnalogPeriodUs(period);
@@ -331,7 +366,6 @@ int runMotor(NRF52Pin *motor, int percent)
 
     if (percent == 0)
     {
-        uBit.serial.printf("perc is 0");
         pulse_period = stop;
     }
     else if (percent < 0)
@@ -340,7 +374,6 @@ int runMotor(NRF52Pin *motor, int percent)
     }
     else
     {
-        uBit.serial.printf("Went here");
         pulse_period = stop + (((max - stop) * percent) / 100);
     }
 
@@ -354,18 +387,18 @@ int runMotor(NRF52Pin *motor, int percent)
     }
 
     // pulse_period = 1932;
-    uBit.serial.printf("PP:/%d/", pulse_period);
+    uBit.serial.printf("Pulse_period:/%d/", pulse_period);
     int duty = (pulse_period * 1023) / period;
     motor->setAnalogValue(duty);
     return 0;
 }
 
-bool fireThem(float_t milliseconds, int32_t right_speed, int32_t left_speed, NRF52Pin *leftMotor,
-              NRF52Pin *rightMotor, bool forward)
+bool fireMotors(float_t milliseconds, int32_t right_speed, int32_t left_speed, NRF52Pin *leftMotor,
+                NRF52Pin *rightMotor, bool forward)
 {
     bool success = true;
-    uBit.serial.printf("\nrightS:%d,leftS:%d\n", right_speed, left_speed);
-    uBit.serial.printf("\nmilliseconds:%d\n", (uint32_t)milliseconds);
+    // uBit.serial.printf("\nrightS:%d,leftS:%d\n", right_speed, left_speed);
+    // uBit.serial.printf("\nmilliseconds:%d\n", (uint32_t)milliseconds);
     success &= runMotor(rightMotor, -1 * right_speed);
     success &= runMotor(leftMotor, left_speed);
     fiber_sleep((uint32_t)milliseconds);
@@ -373,8 +406,6 @@ bool fireThem(float_t milliseconds, int32_t right_speed, int32_t left_speed, NRF
     success &= rightMotor->setServoValue(90, 800, 1500);
     success &= leftMotor->setServoValue(90, 800, 1500);
 }
-
-
 
 /// @brief
 /// @param velocity velocity/speed byte from command byte array
@@ -401,21 +432,21 @@ int32_t finchSpeedToRoversaSpeed(uint8_t velocity)
     uBit.serial.printf("dir:/%d/", direction);
     if (direction) // Forwards
     {
-        uBit.serial.printf("Forwards");
+        // uBit.serial.printf("Forwards");
         // Stays positive
         int32_t speed_100 = speed * 100;
         return (speed_100) / (DIFF_SPEED);
     }
     else if (!direction) // Backwards
     {
-        uBit.serial.printf("Backwards");
+        // uBit.serial.printf("Backwards");
         int32_t speed_100 = speed * 100;
         return -1 * (speed_100) / (DIFF_SPEED);
     }
 }
 
 /************************************************************************/
-// Update movement flags as they are useful in getting a relative encoder tick count
+// Update movement flags as they are useful in getting a relative enc>oder tick count
 // Convert 32 bit number into a 24 bit value and send it to SAMD
 // Left motor
 /************************************************************************/
@@ -443,7 +474,7 @@ void moveMotor(uint8_t *currentCommand)
     int32_t leftMotorVelocity = finchSpeedToRoversaSpeed(leftMotorSpeed);
     int32_t rightMotorVelocity = finchSpeedToRoversaSpeed(rightMotorSpeed);
 
-    uBit.serial.printf("leftMotorSpeed:/%d/", finchSpeedToRoversaSpeed(leftMotorSpeed));
+    // uBit.serial.printf("leftMotorSpeed:/%d/", finchSpeedToRoversaSpeed(leftMotorSpeed));
 
     leftMotorTicks = extractMotorTicks(currentCommand, 3);
     rightMotorTicks = extractMotorTicks(currentCommand, 7);
@@ -459,12 +490,12 @@ void moveMotor(uint8_t *currentCommand)
 
     uBit.serial.send("Moving motors\n\r");
 
-    fireThem(tickToMSForward(leftMotorTicks, abs(leftMotorVelocity))*.4, rightMotorVelocity,
-             leftMotorVelocity, &uBit.io.P1, &uBit.io.P2, leftForward);
-             uBit.io.P1.setAnalogValue(0);
-             uBit.io.P2.setAnalogValue(0);
+    fireMotors(tickToMS(leftMotorTicks, abs(leftMotorVelocity)), rightMotorVelocity,
+               leftMotorVelocity, &uBit.io.P1, &uBit.io.P2, leftForward);
+    uBit.io.P1.setAnalogValue(0);
+    uBit.io.P2.setAnalogValue(0);
     // if (is_turning)
-    //     turnFire(tickToMSForward(leftMotorTicks, abs(leftMotorVelocity)), &uBit.io.P1,
+    //     turnFire(tickToMS(leftMotorTicks, abs(leftMotorVelocity)), &uBit.io.P1,
     //     &uBit.io.P2,
     //              is_going_right);
     // else
