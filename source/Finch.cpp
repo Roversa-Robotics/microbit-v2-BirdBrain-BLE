@@ -6,6 +6,7 @@
 #include "Finch.h"
 #include "BLESerial.h"
 #include "Pins.h"
+#include "Lights.h"
 
 int32_t leftEncoder = 0;  // Holds the running value of the left encoder
 int32_t rightEncoder = 0; // Holds the running value of the right encoder
@@ -41,9 +42,60 @@ void stopFinch()
     memset(prevFinchSetAllLEDs, 0, FINCH_SETALL_LENGTH);
 }
 
+/// Gets T1R,T1G,T1B as according to the specification from the MicroBitProtocols.md
+/// This just returns a slice of the commands array, so you can index >3
+/// Please don't mutate anything returned<3
+uint8_t *get_t1rgb(uint8_t commands[])
+{
+    return commands + 4;
+}
+/// Gets T2R,T2G,T2B as according to the specification from the MicroBitProtocols.md
+/// This just returns a slice of the commands array, so you can index >3
+/// Please don't mutate anything returned<3
+uint8_t *get_t2rgb(uint8_t commands[])
+{
+    return commands + 7;
+}
+
+/// Gets T3R,T3G,T3B as according to the specification from the MicroBitProtocols.md
+/// This just returns a slice of the commands array, so you can index >3
+/// Please don't mutate anything returned<3
+uint8_t *get_t3rgb(uint8_t commands[])
+{
+    return commands + 10;
+}
+
+/// returns whether the command is empty
+/// Ignores first byte b/c that's the command byte, the rest are the data
+/// command_length is the length of the command, in bytes, including the command byte at the
+/// beginning
+bool command_is_empty(uint8_t commands[], uint8_t command_length)
+{
+    for (size_t i = 1; i < command_length; i++)
+    {
+        if (commands[i] != 0)
+            return false;
+    }
+    return true;
+}
+
 // Sets all Finch LEDs + buzzer in one go
 void setAllFinchLEDs(uint8_t commands[], uint8_t length)
 {
+    // code is written like it's event driven, but the app sends requests constantly, most of them
+    // being empty messages to set finch LEDs, so if it's empty we do nothing
+    if (command_is_empty(commands, length))
+        return;
+
+    uBit.serial.printf("[");
+    uint8_t *t1rgb = get_t1rgb(commands);
+    uBit.serial.printf("(%x,%x,%x)", t1rgb[0], t1rgb[1], t1rgb[2]);
+
+    uBit.serial.printf("]");
+
+    color_all(0xe8, t1rgb[0], t1rgb[1], t1rgb[2]);// TODO find out why passing any value in just makes them all white
+    fiber_sleep(1000);
+    color_all(0xe8, 0, 0, 0);
     /*bool updateCommand = false;
 
     // Checking if we've already set the LEDs to the same values, since Android loves to hammer us

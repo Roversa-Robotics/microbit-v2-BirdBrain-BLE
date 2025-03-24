@@ -14,7 +14,6 @@
 #include "MicroBitI2C.h"
 
 MicroBit uBit;
-// MicroBitI2C ledI2c = MicroBitI2C(I2C_SDA0, I2C_SCL0);
 
 // Check for BLE data, execute appropriate commands
 // sensor data is sent asynchronously in a different fiber
@@ -131,11 +130,6 @@ int main()
     // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
 
-    // uint8_t on = 0xff;
-    // uint8_t off = 0x00;
-    // ledI2c.write(0x03, &on, (unsigned int)1);
-    // fiber_sleep(99);
-    // ledI2c.write(0x03, &off, (unsigned int)1);
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice();
