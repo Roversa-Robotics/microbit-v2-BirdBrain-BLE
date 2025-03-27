@@ -54,8 +54,8 @@ int color_rgbn(uint8_t devAddr, uint8_t rgbn, uint8_t r, uint8_t g, uint8_t b)
 {
     uint8_t regAddr = 3 * rgbn;
     return uBit.i2c.writeRegister(devAddr, regAddr, red_list[r]) |
-           uBit.i2c.writeRegister(devAddr, regAddr + 1, grn_list[r]) |
-           uBit.i2c.writeRegister(devAddr, regAddr + 2, blu_list[r]);
+           uBit.i2c.writeRegister(devAddr, regAddr + 1, grn_list[g]) |
+           uBit.i2c.writeRegister(devAddr, regAddr + 2, blu_list[b]);
 }
 
 void color_all(uint8_t devAddr, uint8_t r, uint8_t g, uint8_t b)

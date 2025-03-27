@@ -11,7 +11,6 @@
 #include "Pins.h"
 #include "Notes.h"
 #include "BBMicroBit.h"
-#include "MicroBitI2C.h"
 
 MicroBit uBit;
 
@@ -114,7 +113,7 @@ int main()
 {
 
     uBit.init(); // Initializes everything but SPI
-
+    
     // Set the buzzer pin low so we don't accidentally energize the Finch or HB buzzer
     uBit.io.P0.setDigitalValue(0);
 
@@ -127,9 +126,8 @@ int main()
 
     // Wait for the SAMD bootloader checker
     fiber_sleep(1850);
-    // Figure out what we are called, start flashing our initials
+     // Figure out what we are called, start flashing our initials
     getInitials_fancyName();
-
 
     // Get our name prefix - BB, FN, or MB - depending on what we are attached to
     ManagedString bbDevName = whichDevice();
