@@ -38,18 +38,6 @@ uint8_t blu_list[256] = {
     44, 44, 45, 45, 46, 46, 47, 47, 47, 48, 48, 49, 49, 50, 50, 51, 51, 52, 53, 53, 54, 54, 55, 55,
     56, 56, 57, 57, 58, 58, 59, 59, 60, 61, 61, 62, 62, 63, 63, 64};
 
-/// @brief Checks to see if I2C communication with lights works
-/// @return `MICROBIT_OK` on success, `MICROBIT_I2C_ERROR` if an unresolved read failure is detected
-int checkLightsWork()
-{
-    return 0;
-}
-
-int writeToLights()
-{
-    return 0;
-}
-
 int color_rgbn(uint8_t devAddr, uint8_t rgbn, uint8_t r, uint8_t g, uint8_t b)
 {
     uint8_t regAddr = 3 * rgbn;
